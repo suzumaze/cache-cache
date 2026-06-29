@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>カーシュ・カーシュ</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <!-- ライト/ダーク切替。アイコンは sidepanel.js が現在のテーマに応じて描画 -->
+    <button id="theme-toggle" class="theme-toggle" type="button" aria-label="表示テーマを切り替え" title="表示テーマを切り替え"></button>
+    <main>
+      <!-- host 権限が未付与のときの案内 -->
+      <section id="permission" class="panel-state" hidden>
+        <p class="state-title">監視の許可が必要です</p>
+        <p class="state-body">
+          ページのキャッシュが「どこに隠れていたか」を読み取るために、サイトの応答を見る許可が必要です。
+          まずは現在のサイトだけで使えます。あなたの閲覧内容は外部に送信しません。
+        </p>
+        <div class="permission-actions">
+          <button id="grant-site" class="primary">このサイトだけ許可</button>
+          <button id="grant-all" class="secondary" type="button">すべてのサイトで使う</button>
+        </div>
+      </section>
+
+      <!-- まだ記録が無いとき -->
+      <section id="empty" class="panel-state" hidden>
+        <p class="state-title" id="empty-title">このタブの情報はまだありません</p>
+        <p class="state-body" id="empty-body">ページを再読み込みすると、出どころを確認できます。</p>
+        <button id="reload-empty" class="secondary shortcut-button" type="button"></button>
+      </section>
+
+      <!-- ページ読み込み中（empty を出さずローダーでチラつきを防ぐ） -->
+      <section id="loading" class="panel-state" hidden>
+        <div class="loader" role="status" aria-live="polite">
+          <span class="loader-spinner" aria-hidden="true"></span>
+          <span class="loader-text">確認中…</span>
+        </div>
+      </section>
+
+      <!-- 本体カード -->
+      <section id="card" hidden>
+        <section class="block compare" id="compare">
+          <div class="block-title">再読み込みして確認</div>
+          <div class="button-row">
+            <button id="reload-normal" class="secondary shortcut-button" type="button"></button>
+            <button id="reload-bypass" class="secondary shortcut-button" type="button"></button>
+          </div>
+          <button id="reload-clear-history" class="secondary clear-history-button" type="button">履歴をクリアして再読み込み</button>
+          <p class="hint" id="compare-result" hidden></p>
+        </section>
+
+        <div class="view-tabs" role="tablist" aria-label="表示切り替え">
+          <button id="tab-current" class="view-tab active" type="button" role="tab" aria-selected="true">現在</button>
+          <button id="tab-previous" class="view-tab" type="button" role="tab" aria-selected="false" hidden>前回</button>
+          <button id="tab-older" class="view-tab" type="button" role="tab" aria-selected="false" hidden>前々回</button>
+        </div>
+
+        <div id="record-view">
+          <div class="record-meta" aria-label="表示中の記録">
+            <span id="record-url" class="record-url" title="">—</span>
+            <span id="record-time" class="record-time"></span>
+          </div>
+
+          <!-- L1: 出どころ -->
+          <div class="origin" id="origin">
+            <div class="origin-icon" id="origin-icon"></div>
+            <div class="origin-text">
+              <div class="origin-label" id="origin-label"></div>
+              <p class="origin-lead" id="origin-lead"></p>
+            </div>
+          </div>
+          <p class="notice" id="route-notice" hidden></p>
+
+          <!-- L1: 鮮度・速さ -->
+          <div class="chips">
+            <div class="chip" id="chip-fresh">
+              <span class="chip-key">鮮度</span>
+              <span class="chip-val" id="fresh-val"></span>
+            </div>
+            <div class="chip" id="chip-speed">
+              <span class="chip-key">速さ</span>
+              <span class="chip-val measuring" id="speed-val"></span>
+            </div>
+          </div>
+
+          <!-- L2: 詳細 -->
+          <h2 class="section-title">もっとくわしく</h2>
+          <section class="details-panel">
+            <p class="inline-explain"><b>キャッシュ</b>は、ページを速く表示するために残しておく「控え」のことです。</p>
+            <dl class="details" id="l2-rows"></dl>
+            <div class="terms" id="l2-terms"></div>
+          </section>
+
+          <!-- L3: 生ヘッダー -->
+          <section class="block" id="raw">
+            <div class="block-title">レスポンスヘッダー（届いたものすべて）</div>
+            <table class="raw-table" id="raw-table"></table>
+            <div class="raw-notes" id="raw-notes"></div>
+          </section>
+
+          <!-- 上級者向け: Fastly-Debug 注入（レスポンスヘッダーの下・power-user 向け） -->
+          <section class="block" id="advanced">
+            <div class="block-title">上級者向け：Fastly の詳細ヘッダーを取得</div>
+            <label class="toggle">
+              <input type="checkbox" id="debug-toggle" />
+              <span>このタブで <code>Fastly-Debug</code> を有効化（切り替えると自動で再読み込みします）</span>
+            </label>
+            <p class="hint">対象タブだけに適用され、ほかのサイトは書き換えません。多くの本番サイトでは無効化されており取得できないことがあります。</p>
+          </section>
+
+          <!-- CSS（おまけ・一番下。同一サイト内CSSが無ければ JS でブロックごと非表示） -->
+          <section class="block" id="stylesheets" hidden>
+            <div class="block-title">CSS</div>
+            <p class="hint" id="stylesheet-summary"></p>
+            <div class="css-list" id="stylesheet-list"></div>
+          </section>
+        </div>
+
+        <section class="block" id="share">
+          <div class="block-title">コピーして共有</div>
+          <p class="hint">取得できた分だけをまとめてコピーします。</p>
+          <button id="copy-headers" class="secondary" type="button">レスポンスヘッダーをまとめてコピー</button>
+          <p class="hint" id="copy-status" hidden></p>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>

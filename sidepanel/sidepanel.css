@@ -1,0 +1,601 @@
+:root {
+  --accent: #6b7280;
+  --brand: #7560a8;
+  --brand-hover: #624c92;
+  --brand-contrast: #ffffff;
+  --brand-soft: #f4f0ff;
+  --brand-line: #e3d9f7;
+  --coin: #f5b82e;
+  --bg: #fbf9ff;
+  --surface: #fffefd;
+  --ink: #201a2e;
+  --ink-soft: #645b75;
+  --line: #e9e2f1;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(20, 30, 50, 0.04), 0 6px 20px rgba(20, 30, 50, 0.06);
+  --text-caption: 12px;
+  --text-small: 13px;
+  --text-base: 15px;
+  --text-lead: 16px;
+  --text-title: 19px;
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+}
+
+/* ダーク配色トークン。下の2セレクタで同値を共有（編集時は両方を揃える）:
+   ・@media: OSがダーク かつ ユーザー未指定(auto) のとき
+   ・[data-theme='dark']: ユーザーが明示選択（OS設定に関わらず）
+   明示でライトを選ぶと data-theme='light' になり、どちらも当たらず既定のライトになる。 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --brand: #9a86d6;
+    --brand-hover: #ae9ae9;
+    --brand-contrast: #ffffff;
+    --brand-soft: #2b2438;
+    --brand-line: #403652;
+    --coin: #f3c34f;
+    --bg: #17131f;
+    --surface: #211c2a;
+    --ink: #f5f1fb;
+    --ink-soft: #b8aec9;
+    --line: #342d42;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --brand: #9a86d6;
+  --brand-hover: #ae9ae9;
+  --brand-contrast: #ffffff;
+  --brand-soft: #2b2438;
+  --brand-line: #403652;
+  --coin: #f3c34f;
+  --bg: #17131f;
+  --surface: #211c2a;
+  --ink: #f5f1fb;
+  --ink-soft: #b8aec9;
+  --line: #342d42;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  padding: 14px;
+}
+
+/* ---- 状態パネル（許可・空） ---- */
+.panel-state {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.state-title {
+  font-weight: 700;
+  margin: 0 0 6px;
+  font-size: var(--text-lead);
+}
+.state-body {
+  color: var(--ink-soft);
+  margin: 0 0 14px;
+  font-size: var(--text-base);
+  text-align: left;
+}
+
+/* ---- ロード中（empty を出さずチラつき防止） ---- */
+.loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  padding: 6px;
+}
+.loader-spinner {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--brand-line);
+  border-top-color: var(--brand);
+  animation: cc-spin 0.7s linear infinite;
+}
+@keyframes cc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loader-spinner {
+    animation: none;
+  }
+}
+
+/* ---- ライト/ダーク切替（パネル右上に固定・全状態で常時表示） ---- */
+.theme-toggle {
+  position: fixed;
+  top: 8px;
+  right: 10px;
+  z-index: 20;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-soft);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+.theme-toggle:hover {
+  color: var(--brand);
+  border-color: var(--brand-line);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+button.primary {
+  appearance: none;
+  border: none;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-weight: 700;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: var(--text-base);
+  width: 100%;
+}
+button.primary:hover {
+  background: var(--brand-hover);
+}
+button.secondary {
+  appearance: none;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 700;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: var(--text-base);
+}
+button.secondary:hover {
+  border-color: var(--brand);
+}
+.shortcut-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.button-label,
+.shortcut-key {
+  min-width: 0;
+}
+.shortcut-key {
+  flex: none;
+  border: 1px solid var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-caption);
+  font-weight: 700;
+  line-height: 1.5;
+}
+.permission-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.button-row button.secondary {
+  width: 100%;
+}
+.clear-history-button {
+  margin-top: 8px;
+}
+.view-tabs {
+  display: flex;
+  gap: 3px;
+  margin: 12px -8px 0;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+}
+button.view-tab {
+  appearance: none;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--ink-soft);
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: 1.4;
+  padding: 8px 10px;
+  position: relative;
+  top: 2px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+button.view-tab[hidden] {
+  display: none;
+}
+/* 選択中タブ：下のパネルと地続きにし、丸ごと切り替わった面に見せる */
+button.view-tab.active {
+  top: 0;
+  border-color: var(--brand-line);
+  border-top: 3px solid var(--brand);
+  /* パネル背景と同色の下罫。-1px 重ねの継ぎ目を塗り潰し、高DPR/ズーム時のヘアラインを防ぐ */
+  border-bottom: 1px solid var(--brand-soft);
+  background: var(--brand-soft);
+  color: var(--ink);
+  padding-top: 6px;
+  z-index: 2;
+}
+button.view-tab:not(.active):hover {
+  background: var(--brand-soft);
+  color: var(--ink);
+  top: 1px;
+}
+button.view-tab:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+/* 記録本体。選択中タブと一体の連結パネルにし「現在表示中」を面で示す */
+#record-view {
+  position: relative;
+  z-index: 0;
+  margin: -1px -8px 0;
+  padding: 12px 8px 14px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+/* URL変化の注意書き。ラベンダーテーマに馴染ませ、左のブランド罫で「お知らせ」感だけ残す。
+   色はトークンなのでダークにも自動追従（個別の dark 上書きは不要）。 */
+.notice {
+  margin: 10px 2px 0;
+  border: 1px solid var(--brand-line);
+  border-left: 3px solid var(--brand);
+  background: var(--brand-soft);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: var(--text-small);
+}
+
+/* ---- L1 出どころカード ---- */
+.origin {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.origin-icon {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  color: var(--accent);
+}
+.origin-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+.origin-label {
+  font-size: var(--text-title);
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--accent);
+}
+.origin-lead {
+  margin: 4px 0 0;
+  font-size: var(--text-base);
+  color: var(--ink);
+}
+
+/* ---- L1 チップ（鮮度・速さ）。2列グリッド固定で、速さが後から届いてもレイアウトシフトしない ---- */
+.chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+.chip {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 9px 12px;
+}
+.chip-key {
+  display: block;
+  font-size: var(--text-small);
+  color: var(--ink-soft);
+}
+.chip-val {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.chip-val.measuring {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+/* ---- L2 詳細 ---- */
+.section-title {
+  font-size: var(--text-small);
+  text-transform: none;
+  color: var(--ink-soft);
+  font-weight: 700;
+  margin: 20px 4px 8px;
+}
+.inline-explain {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  line-height: 1.5;
+  padding: 10px 14px;
+}
+.inline-explain b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.details-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.details {
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+.details .row {
+  display: grid;
+  grid-template-columns: 38% 62%;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+.details .row:first-child {
+  border-top: none;
+}
+.details dt {
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+}
+.details dd {
+  margin: 0;
+  font-size: var(--text-base);
+  word-break: break-word;
+}
+.details .row-note {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+  margin-top: -2px;
+}
+
+/* ---- 用語補足 ---- */
+.terms {
+  margin: 0;
+  border-top: 1px solid var(--line);
+  padding: 9px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.term {
+  font-size: var(--text-small);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.term b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.terms:empty {
+  display: none;
+}
+
+/* ---- 情報ブロック（上級者向け・生ヘッダー・共有） ---- */
+.block {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 14px 12px;
+}
+.block-title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--ink);
+  padding: 8px 0;
+}
+.toggle {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: var(--text-small);
+  padding: 4px 0;
+}
+.toggle code,
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-caption);
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+.hint {
+  font-size: var(--text-small);
+  color: var(--ink-soft);
+  margin: 6px 0 10px;
+}
+.block > .hint:last-child {
+  margin-bottom: 0;
+}
+/* タブ/記録パネルと外幅をそろえ、ブロック幅の不揃いを防ぐ */
+.compare {
+  margin: 0 -8px 12px;
+}
+#share {
+  margin-left: -8px;
+  margin-right: -8px;
+}
+.compare .hint {
+  margin-bottom: 8px;
+}
+.css-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 10px;
+}
+.css-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  row-gap: 1px;
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+}
+.css-badge {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: var(--text-caption);
+  line-height: 1.5;
+  padding: 0 6px;
+}
+.css-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-small);
+}
+.css-meta {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+}
+.raw-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-small);
+  margin: 4px 0 12px;
+  table-layout: fixed;
+}
+.raw-table td {
+  border-top: 1px solid var(--line);
+  padding: 5px 6px;
+  vertical-align: top;
+  word-break: break-word;
+}
+.raw-table td.k {
+  color: var(--ink-soft);
+  width: 40%;
+}
+.raw-table .raw-subtitle td {
+  background: var(--brand-soft);
+  border-top: 1px solid var(--brand-line);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  font-weight: 700;
+  padding: 8px 6px 6px;
+}
+.raw-notes {
+  margin: 2px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.raw-note-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.raw-note-heading {
+  color: var(--ink);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+.raw-note {
+  font-size: var(--text-small);
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.raw-note b {
+  color: var(--ink);
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-small);
+  margin-right: 2px;
+}
+
+/* ---- 表示中レコード ---- */
+.record-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 2px 10px;
+  padding: 0 2px;
+  color: var(--ink-soft);
+  font-size: var(--text-small);
+}
+.record-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-weight: 600;
+}
+.record-time {
+  flex: none;
+}

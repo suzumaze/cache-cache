@@ -1,0 +1,15 @@
+{
+  "name": "cache-cache",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "リソースがどこから届いたかを詳しく、やさしい言葉で表示する Chrome 拡張（Manifest V3）",
+  "scripts": {
+    "test": "node --test",
+    "icons": "node tools/make-icons.mjs",
+    "package": "node tools/package-extension.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^24.43.1"
+  }
+}

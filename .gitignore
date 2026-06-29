@@ -1,0 +1,11 @@
+# 依存
+node_modules/
+
+# ビルド成果物（npm run package で再生成）
+dist/
+
+# ローカル設定
+.claude/settings.local.json
+
+# macOS
+.DS_Store

@@ -1,0 +1,83 @@
+{
+  "standard": {
+    "label": "標準",
+    "headers": {
+      "age": "キャッシュに入ってからの推定経過秒数（RFC9111）",
+      "cache-control": "キャッシュ指令（RFC9111）",
+      "cache-status": "キャッシュ経路（RFC9211）",
+      "date": "応答生成日時（RFC9110）",
+      "etag": "エンティティタグ（RFC9110）",
+      "expires": "失効日時（RFC9111）",
+      "last-modified": "最終更新日時（RFC9110）",
+      "vary": "副次キー（RFC9110）",
+      "via": "経由した中継・プロキシ（RFC9110）"
+    }
+  },
+  "surrogate": {
+    "label": "中継キャッシュ",
+    "headers": {
+      "surrogate-control": "中継キャッシュ指令（Surrogate）",
+      "surrogate-key": "中継キャッシュのキー（Surrogate）"
+    }
+  },
+  "cdnCommon": {
+    "label": "CDN共通",
+    "headers": {
+      "x-cache": "キャッシュ判定（CDN独自）"
+    }
+  },
+  "fastly": {
+    "label": "Fastly独自",
+    "headers": {
+      "x-cache-hits": "キャッシュで見つかった回数（Fastly独自）",
+      "x-served-by": "配信した拠点（Fastly独自）",
+      "x-timer": "処理時間の内訳（Fastly独自）"
+    }
+  },
+  "cloudflare": {
+    "label": "Cloudflare独自",
+    "headers": {
+      "cf-cache-status": "キャッシュ判定（Cloudflare独自）",
+      "cf-ray": "識別ID（Cloudflare独自）"
+    }
+  },
+  "cloudfront": {
+    "label": "CloudFront独自",
+    "headers": {
+      "x-amz-cf-id": "識別ID（CloudFront独自）",
+      "x-amz-cf-pop": "配信した拠点（CloudFront独自）"
+    }
+  },
+  "akamai": {
+    "label": "Akamai独自",
+    "headers": {
+      "akamai-cache-status": "キャッシュ判定（Akamai独自）",
+      "x-akamai-transformed": "Akamaiによる本文変換の情報（Akamai独自）"
+    }
+  },
+  "security": {
+    "label": "セキュリティ",
+    "headers": {
+      "content-security-policy": "読み込み元を制限する安全指定（CSP, W3C）",
+      "referrer-policy": "遷移時に送る参照元情報の範囲（W3C）",
+      "strict-transport-security": "常にHTTPSで接続させる（HSTS, RFC6797）",
+      "x-content-type-options": "ファイル種別の推測を禁止し誤実行を防ぐ（nosniff, WHATWG Fetch）",
+      "x-frame-options": "他サイトへの埋め込みを制限（クリックジャッキング対策, RFC7034）",
+      "x-xss-protection": "旧ブラウザのXSSフィルタ制御（非標準・現在は非推奨）"
+    }
+  },
+  "general": {
+    "label": "一般",
+    "headers": {
+      "accept-ranges": "部分ダウンロード（範囲取得）の可否（RFC9110）",
+      "alt-svc": "代替の接続経路（HTTP/3等への誘導, RFC7838）",
+      "content-encoding": "本文の圧縮方式（gzip等, RFC9110）",
+      "content-language": "本文の言語（RFC9110）",
+      "content-length": "本文のバイト数（RFC9110）",
+      "content-type": "本文の種類と文字コード（MIMEタイプ, RFC9110）",
+      "location": "転送先URL（リダイレクト, RFC9110）",
+      "server": "サーバーソフトの名称（RFC9110）",
+      "set-cookie": "ブラウザに保存させるCookie（RFC6265）"
+    }
+  }
+}
