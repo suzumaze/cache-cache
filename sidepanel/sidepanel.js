@@ -36,7 +36,8 @@ const els = {
   speedVal: $('speed-val'),
   reloadNormal: $('reload-normal'),
   reloadBypass: $('reload-bypass'),
-  reloadClearHistory: $('reload-clear-history'),
+  reloadClearNormal: $('reload-clear-normal'),
+  reloadClearBypass: $('reload-clear-bypass'),
   compareResult: $('compare-result'),
   rows: $('l2-rows'),
   terms: $('l2-terms'),
@@ -114,6 +115,8 @@ function setupShortcutButtons() {
   setShortcutButton(els.reloadEmpty, 'このページを再読み込み', shortcutText('normal'));
   setShortcutButton(els.reloadNormal, '通常再読み込み', shortcutText('normal'));
   setShortcutButton(els.reloadBypass, 'キャッシュ無視', shortcutText('bypass'));
+  setShortcutButton(els.reloadClearNormal, 'リセットして通常', '');
+  setShortcutButton(els.reloadClearBypass, 'リセットしてキャッシュ無視', '');
 }
 
 function originPatternFromUrl(url) {
@@ -590,7 +593,7 @@ async function startCompare(mode) {
   await chrome.tabs.reload(currentTabId, { bypassCache: mode === 'bypass' });
 }
 
-async function clearHistoryAndReload() {
+async function clearHistoryAndReload(mode) {
   if (currentTabId == null) return;
   activeRecordIndex = 0;
   await chrome.storage.session.remove(compareKey(currentTabId));
@@ -598,8 +601,8 @@ async function clearHistoryAndReload() {
   const pendingUrl = rec?.url || currentTabUrl || '';
   await chrome.storage.session.set({ [recordKey(currentTabId)]: { pendingUrl, stylesheets: [], history: [] } });
   els.compareResult.hidden = false;
-  els.compareResult.textContent = '履歴をクリアして再読み込み中です…';
-  await chrome.tabs.reload(currentTabId);
+  els.compareResult.textContent = '記録をリセットして再読み込み中です…';
+  await chrome.tabs.reload(currentTabId, { bypassCache: mode === 'bypass' });
 }
 
 async function requestAllSitesAccess() {
@@ -740,7 +743,8 @@ els.reloadEmpty.addEventListener('click', () => {
 
 els.reloadNormal.addEventListener('click', () => startCompare('normal'));
 els.reloadBypass.addEventListener('click', () => startCompare('bypass'));
-els.reloadClearHistory.addEventListener('click', clearHistoryAndReload);
+els.reloadClearNormal.addEventListener('click', () => clearHistoryAndReload('normal'));
+els.reloadClearBypass.addEventListener('click', () => clearHistoryAndReload('bypass'));
 
 window.addEventListener('keydown', (event) => {
   const mod = isMacPlatform() ? event.metaKey : event.ctrlKey;
