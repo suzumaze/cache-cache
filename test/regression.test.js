@@ -56,13 +56,14 @@ test('汎用プロキシ命中 → 正式名は「CDN」と断定しない', () 
   assert.match(p.l1.lead, /提供元までは特定できませんでした/);
 });
 
-// logic-2: Fastly 段数不一致でも x-cache 側で命中場所を判定
-test('Fastly x-served-by が1段でも x-cache が MISS,HIT なら shield 命中', () => {
+// logic-2: x-served-by が1POPだけなら（x-cache が MISS,HIT でも）別拠点のシールドと断定しない。
+// 2つ目の HIT の POP が不明で、同一POP内クラスタリングの可能性を排除できないため（原則3）。
+test('Fastly x-served-by が1POPだけなら shield と断定しない', () => {
   const f = parseFastly(map({ 'x-served-by': 'cache-nrt-a-NRT', 'x-cache': 'MISS, HIT' }));
   assert.equal(f.hit, true);
-  assert.equal(f.servedAt, 'shield');
+  assert.equal(f.servedAt, 'edge');
   assert.equal(f.pop.code, 'NRT');
-  assert.equal(f.layers, 2);
+  assert.equal(f.pops, 1);
 });
 
 // logic-1: ccHas が修飾付き no-cache="..." を検出
@@ -105,11 +106,16 @@ test('ブラウザ再確認(304) → 「確認済み」表示', () => {
   assert.match(present(classify(FIXTURES.browserRevalidated)).l1.freshness, /確認済み/);
 });
 
-// FB追補: シールド構成は2段観測で「あり」、1段(エッジHIT)では断定せず「今回は確認できません」
-test('Fastly 2段 → シールドはあり', () => {
-  const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-nrt-a-NRT, cache-nrt-b-NRT', 'x-cache': 'MISS, HIT', 'x-cache-hits': '0, 1' })));
+// FB追補: 異なるPOPを2つまたぐと「あり」、単一POP(エッジHIT/POP内クラスタリング)では断定せず「確認できません」
+test('Fastly 別POP2段 → シールドはあり', () => {
+  const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-kix-a-KIX, cache-nrt-b-NRT', 'x-cache': 'MISS, HIT', 'x-cache-hits': '0, 1' })));
   const shield = present(v).l2.rows.find((r) => r.label === 'シールド');
   assert.match(shield.value, /あり/);
+});
+test('Fastly 同一POP2ノード(クラスタリング) → シールドは確認できません', () => {
+  const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-nrt-a-NRT, cache-nrt-b-NRT', 'x-cache': 'MISS, HIT', 'x-cache-hits': '0, 1' })));
+  const shield = present(v).l2.rows.find((r) => r.label === 'シールド');
+  assert.match(shield.value, /確認できません/);
 });
 test('Fastly 1段(エッジHIT) → シールドは今回は確認できません', () => {
   const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-nrt-a-NRT', 'x-cache': 'HIT', 'x-cache-hits': '1' })));
@@ -117,7 +123,9 @@ test('Fastly 1段(エッジHIT) → シールドは今回は確認できませ�
   const shield = present(v).l2.rows.find((r) => r.label === 'シールド');
   assert.match(shield.value, /確認できません/);
 });
-test('Fastly 3段 → 2段固定で説明しない', () => {
+// エッジ側の同一POPクラスタリング(SJC,SJC)は1段に畳み、別POP(NRT)を足して「2段」。
+// 命中は SJC の fetch ノード＝エッジ。ノード数(3)ではなく POP 数(2)で数える。
+test('Fastly エッジ側クラスタ＋別シールド → POP数で2段・エッジ命中', () => {
   const v = classify(input(h({
     via: '1.1 varnish',
     'x-served-by': 'cache-sjc-a-SJC, cache-sjc-b-SJC, cache-nrt-c-NRT',
@@ -126,11 +134,10 @@ test('Fastly 3段 → 2段固定で説明しない', () => {
   })));
   const p = present(v);
   const shield = p.l2.rows.find((r) => r.label === 'シールド');
-  assert.match(shield.value, /3段/);
-  assert.doesNotMatch(shield.value, /エッジ→シールドの2段/);
+  assert.match(shield.value, /エッジ→シールドの2段/);
   const served = p.l2.rows.find((r) => r.label === '返ってきた場所');
-  assert.match(served.value, /シールド1/);
-  assert.match(served.note, /シールド2/);
+  assert.match(served.value, /エッジ/);
+  assert.doesNotMatch(served.value, /シールド/);
 });
 
 // #6: 切れ方は TTL/タグの手がかりがあるときだけ出す（無ければ断定せず黙る・ノイズ回避）

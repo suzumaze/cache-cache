@@ -23,31 +23,48 @@ test('detectCdn: オリジンVarnish（X-Served-By無し）は Fastly と誤認�
   assert.equal(detectCdn(map({ via: '1.1 varnish', 'x-varnish': '123' })), 'generic');
 });
 
-test('parseFastly: MISS, HIT → shield 命中・POP=NRT・2段', () => {
+test('parseFastly: 同一POPの MISS,HIT はクラスタリング＝エッジ命中（シールドではない）', () => {
+  // 両ノードとも NRT＝東京POP内の delivery→fetch。地理的には1拠点なのでシールド扱いしない。
   const f = parseFastly(map({
     'x-served-by': 'cache-nrt-a-NRT, cache-nrt-b-NRT',
     'x-cache': 'MISS, HIT',
     'x-cache-hits': '0, 1',
   }));
   assert.equal(f.hit, true);
-  assert.equal(f.servedAt, 'shield');
+  assert.equal(f.servedAt, 'edge');
   assert.equal(f.pop.code, 'NRT');
-  assert.equal(f.layers, 2);
-  assert.equal(f.servedIndex, 1);
+  assert.equal(f.pops, 1);
+  assert.equal(f.servedTier, 0);
 });
 
-test('parseFastly: 3段でも命中位置を保持する', () => {
+test('parseFastly: 別POPの MISS,HIT はシールド命中', () => {
+  // エッジ＝大阪KIX が MISS、東京NRT シールドで HIT。POP が異なるので shield。
+  const f = parseFastly(map({
+    'x-served-by': 'cache-kix-a-KIX, cache-nrt-b-NRT',
+    'x-cache': 'MISS, HIT',
+    'x-cache-hits': '0, 1',
+  }));
+  assert.equal(f.hit, true);
+  assert.equal(f.servedAt, 'shield');
+  assert.equal(f.pops, 2);
+  assert.equal(f.edgePop.code, 'KIX');
+  assert.equal(f.pop.code, 'NRT');
+  assert.equal(f.servedTier, 1);
+});
+
+test('parseFastly: エッジ側クラスタ＋別シールドは POP 数で2段（ノード数3でも）', () => {
+  // SJC,SJC(クラスタ)＋NRT(シールド)。命中は SJC の fetch ノード＝エッジ命中。POP は2つ。
   const f = parseFastly(map({
     'x-served-by': 'cache-sjc-a-SJC, cache-sjc-b-SJC, cache-nrt-c-NRT',
     'x-cache': 'MISS, HIT, HIT',
     'x-cache-hits': '0, 3, 1',
   }));
   assert.equal(f.hit, true);
-  assert.equal(f.servedAt, 'shield');
-  assert.equal(f.servedIndex, 1);
-  assert.equal(f.layers, 3);
+  assert.equal(f.servedAt, 'edge');
+  assert.equal(f.pops, 2);
   assert.equal(f.edgePop.code, 'SJC');
   assert.equal(f.pop.code, 'SJC');
+  assert.equal(f.servedTier, 0);
 });
 
 test('parseFastly: HIT, MISS → edge 命中', () => {

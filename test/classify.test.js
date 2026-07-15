@@ -10,17 +10,26 @@ test('Fastly 東京シールドで命中 → ネットワークキャッシュ',
   assert.equal(v.cdn.servedAt, 'shield');
   assert.equal(v.cdn.pop.code, 'NRT');
   assert.equal(v.cdn.pop.city, '東京');
-  assert.equal(v.cdn.layers, 2);
+  assert.equal(v.cdn.edgePop.code, 'KIX'); // 入口は大阪
+  assert.equal(v.cdn.pops, 2);
   assert.equal(v.freshness.mode, 'unknown'); // Cache-Control 不在
   assert.equal(v.freshness.ageKnown, true);
   assert.equal(v.speed.ttfbMs, 3);
+});
+
+test('Fastly 同一POPクラスタリングで命中 → エッジ命中（シールドと誤認しない）', () => {
+  const v = classify(FIXTURES.fastlyClusterTokyo);
+  assert.equal(v.origin.state, 'network');
+  assert.equal(v.cdn.servedAt, 'edge');
+  assert.equal(v.cdn.pop.code, 'NRT');
+  assert.equal(v.cdn.pops, 1);
 });
 
 test('Fastly エッジで命中（1段）', () => {
   const v = classify(FIXTURES.fastlyEdgeHit);
   assert.equal(v.origin.state, 'network');
   assert.equal(v.cdn.servedAt, 'edge');
-  assert.equal(v.cdn.layers, 1);
+  assert.equal(v.cdn.pops, 1);
 });
 
 test('Fastly 全MISS → サーバー作りたて＋生成時間', () => {

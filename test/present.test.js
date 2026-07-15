@@ -22,6 +22,20 @@ test('Fastly東京シールド: L1 はネットワークキャッシュ・バッ
   assert.match(shield.value, /あり/);
 });
 
+test('Fastly 同一POPクラスタリング: シールドと誤表示せず、エッジ命中として示す', () => {
+  const p = present(classify(FIXTURES.fastlyClusterTokyo));
+  const shield = p.l2.rows.find((r) => r.label === 'シールド');
+  assert.match(shield.value, /確認できません/); // 「あり」と誤断定しない
+  const served = p.l2.rows.find((r) => r.label === '返ってきた場所');
+  assert.match(served.value, /エッジ/);
+  assert.doesNotMatch(served.value, /シールド/);
+  // 同一拠点なので「見つかった拠点」は出さず、最寄り（東京）を1つだけ示す
+  const labels = p.l2.rows.map((r) => r.label);
+  assert.ok(!labels.includes('見つかった拠点'));
+  const nearest = p.l2.rows.find((r) => r.label === '最寄りの拠点');
+  assert.match(nearest.value, /東京/);
+});
+
 test('Fastly 全MISS: L1 はサーバー（作りたて）・バッジ新', () => {
   const p = present(classify(FIXTURES.fastlyMissFresh));
   assert.equal(p.l1.label, 'サーバー（作りたて）');

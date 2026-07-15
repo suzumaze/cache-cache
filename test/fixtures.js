@@ -22,11 +22,24 @@ export function input(headers, extra = {}) {
 }
 
 export const FIXTURES = {
-  // SPEC §6 の実測（Fastly・東京シールドで命中・エッジMISS）
-  fastlyShieldTokyo: input(h({
+  // SPEC §6 の実測（Fastly）。両ノードとも NRT＝東京POP内のクラスタリング（delivery MISS→fetch HIT）で、
+  // 別拠点のシールドではない。地理的には東京1拠点＝エッジ命中扱い。
+  fastlyClusterTokyo: input(h({
     server: 'nginx',
     via: '1.1 varnish',
     'x-served-by': 'cache-nrt-rjtf7700076-NRT, cache-nrt-rjtt7900040-NRT',
+    'x-cache': 'MISS, HIT',
+    'x-cache-hits': '0, 1',
+    age: '7',
+    'x-timer': 'S1781845958.411360,VS0,VE3',
+    vary: 'X-Device-Type, Accept-Encoding',
+  }), { ttfbMs: 3 }),
+
+  // 別拠点のオリジンシールドで命中（エッジ＝大阪KIX は MISS、シールド＝東京NRT で HIT）。
+  fastlyShieldTokyo: input(h({
+    server: 'nginx',
+    via: '1.1 varnish',
+    'x-served-by': 'cache-kix-kxaa7700076-KIX, cache-nrt-rjtt7900040-NRT',
     'x-cache': 'MISS, HIT',
     'x-cache-hits': '0, 1',
     age: '7',
