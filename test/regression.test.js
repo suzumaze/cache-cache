@@ -11,6 +11,17 @@ import { h, input, FIXTURES } from './fixtures.js';
 
 const map = (obj) => toHeaderMap(h(obj));
 
+// Fastly が両段MISSでも Age>0 なら、オリジン側キャッシュ由来（＝素通しの証拠が age）。
+// 「サーバーから直接届いた」と誤表示せず「用意していたキャッシュ」とする。
+test('Fastly 全MISS + Age>0 → オリジン側キャッシュ（「直接届いた」と出さない）', () => {
+  const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-nrt-a-NRT, cache-nrt-b-NRT', 'x-cache': 'MISS, MISS', age: '769' })));
+  assert.equal(v.origin.state, 'server');
+  assert.equal(v.server.kind, 'server-cache');
+  const p = present(v);
+  assert.match(p.l1.label, /用意していたキャッシュ/);
+  assert.doesNotMatch(p.l1.lead, /直接届きました/);
+});
+
 // spec-0 / mv3-1 / ux-4: 作りたて応答に「控え」「切り替わります」と出さない
 test('作りたて + max-age大 → 「今ご覧のものが最新です」（控え表現を出さない）', () => {
   const v = classify(input(h({ server: 'nginx', 'cache-control': 'private, max-age=100000', date: 'Fri, 19 Jun 2026 12:00:00 GMT', age: '0' })));
