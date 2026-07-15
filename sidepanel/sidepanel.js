@@ -552,7 +552,7 @@ function buildResponseHeadersText(rec, title = 'レスポンスヘッダー') {
 }
 
 function buildAllResponseHeadersText(rec) {
-  const records = tabRecords(rec);
+  const records = tabRecords(rec); // [現在, 前回, 前々回]（新しい順）
   const sections = records.map((item, index) => {
     let label = '特定できませんでした';
     try {
@@ -560,7 +560,8 @@ function buildAllResponseHeadersText(rec) {
     } catch (_) {}
     return buildResponseHeadersText(item, `カーシュ・カーシュ ${RECORD_LABELS[index]}: ${label}`);
   });
-  return sections.join('\n\n---\n\n');
+  // 共有テキストは時系列（古い順）が読みやすいので、ラベルは対応させたまま出力順だけ反転する。
+  return sections.reverse().join('\n\n---\n\n');
 }
 
 async function copyText(text) {
