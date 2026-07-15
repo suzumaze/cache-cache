@@ -23,6 +23,13 @@ test('immutable → 作成日', () => {
   assert.equal(f.mode, 'created');
 });
 
+test('作成日は Age を引いた投入時刻（Date=配信時刻に引きずられない）', () => {
+  // max-age=1年・age=7200(2時間)。Fastly は Date を配信時刻へ書き換えるが、作成時刻は受信の2時間前。
+  const f = fr({ 'cache-control': 'public, max-age=31536000', date: 'Fri, 19 Jun 2026 12:00:00 GMT', age: '7200' });
+  assert.equal(f.mode, 'created');
+  assert.equal(f.createdAt.getTime(), NOW - 7200 * 1000);
+});
+
 test('Cache-Control 不在・Age あり → 不明（非公開）', () => {
   const f = fr({ age: '7' });
   assert.equal(f.mode, 'unknown');
