@@ -1,15 +1,22 @@
 {
   "manifest_version": 3,
   "name": "カーシュ・カーシュ",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "リソースがキャッシュのどこに隠れていたかを、やさしい言葉で表示します。名前は「キャッシュ」とフランス語の「かくれんぼ」から。",
   "minimum_chrome_version": "116",
   "icons": {
-    "128": "icons/icon-light.svg"
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "action": {
     "default_title": "カーシュ・カーシュを開く",
-    "default_icon": "icons/icon-light.svg"
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
   },
   "background": {
     "service_worker": "service-worker.js",
