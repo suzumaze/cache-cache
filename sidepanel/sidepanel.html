@@ -96,14 +96,7 @@
             <div class="terms" id="l2-terms"></div>
           </section>
 
-          <!-- L3: 生ヘッダー -->
-          <section class="block" id="raw">
-            <div class="block-title">レスポンスヘッダー（届いたものすべて）</div>
-            <table class="raw-table" id="raw-table"></table>
-            <div class="raw-notes" id="raw-notes"></div>
-          </section>
-
-          <!-- 上級者向け: Fastly-Debug 注入（レスポンスヘッダーの下・power-user 向け） -->
+          <!-- 上級者向け: Fastly-Debug 注入（詳細の下・生ヘッダーの上・power-user 向け） -->
           <section class="block" id="advanced">
             <div class="block-title">上級者向け：Fastly の詳細ヘッダーを取得</div>
             <label class="toggle">
@@ -111,6 +104,13 @@
               <span>このタブで <code>Fastly-Debug</code> を有効化（切り替えると自動で再読み込みします）</span>
             </label>
             <p class="hint">対象タブだけに適用され、ほかのサイトは書き換えません。多くの本番サイトでは無効化されており取得できないことがあります。</p>
+          </section>
+
+          <!-- L3: 生ヘッダー -->
+          <section class="block" id="raw">
+            <div class="block-title">レスポンスヘッダー（届いたものすべて）</div>
+            <table class="raw-table" id="raw-table"></table>
+            <div class="raw-notes" id="raw-notes"></div>
           </section>
 
           <!-- CSS（おまけ・一番下。同一サイト内CSSが無ければ JS でブロックごと非表示） -->
