@@ -25,7 +25,7 @@ test('Fastly東京シールド: L1 はネットワークキャッシュ・バッ
 test('Fastly 同一POPクラスタリング: シールドと誤表示せず、エッジ命中として示す', () => {
   const p = present(classify(FIXTURES.fastlyClusterTokyo));
   const shield = p.l2.rows.find((r) => r.label === 'シールド');
-  assert.match(shield.value, /確認できません/); // 「あり」と誤断定しない
+  assert.match(shield.value, /判定できません/); // 「あり」と誤断定しない
   const served = p.l2.rows.find((r) => r.label === '返ってきた場所');
   assert.match(served.value, /エッジ/);
   assert.doesNotMatch(served.value, /シールド/);

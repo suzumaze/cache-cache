@@ -117,22 +117,22 @@ test('ブラウザ再確認(304) → 「確認済み」表示', () => {
   assert.match(present(classify(FIXTURES.browserRevalidated)).l1.freshness, /確認済み/);
 });
 
-// FB追補: 異なるPOPを2つまたぐと「あり」、単一POP(エッジHIT/POP内クラスタリング)では断定せず「確認できません」
+// FB追補: 異なるPOPを2つまたぐと「あり」、単一POP(エッジHIT/POP内クラスタリング)では断定せず「判定できません」
 test('Fastly 別POP2段 → シールドはあり', () => {
   const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-kix-a-KIX, cache-nrt-b-NRT', 'x-cache': 'MISS, HIT', 'x-cache-hits': '0, 1' })));
   const shield = present(v).l2.rows.find((r) => r.label === 'シールド');
   assert.match(shield.value, /あり/);
 });
-test('Fastly 同一POP2ノード(クラスタリング) → シールドは確認できません', () => {
+test('Fastly 同一POP2ノード(クラスタリング) → シールドは判定できません', () => {
   const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-nrt-a-NRT, cache-nrt-b-NRT', 'x-cache': 'MISS, HIT', 'x-cache-hits': '0, 1' })));
   const shield = present(v).l2.rows.find((r) => r.label === 'シールド');
-  assert.match(shield.value, /確認できません/);
+  assert.match(shield.value, /判定できません/);
 });
-test('Fastly 1段(エッジHIT) → シールドは今回は確認できません', () => {
+test('Fastly 1段(エッジHIT) → シールドは今回は判定できません', () => {
   const v = classify(input(h({ via: '1.1 varnish', 'x-served-by': 'cache-nrt-a-NRT', 'x-cache': 'HIT', 'x-cache-hits': '1' })));
   assert.equal(v.cdn.name, 'Fastly');
   const shield = present(v).l2.rows.find((r) => r.label === 'シールド');
-  assert.match(shield.value, /確認できません/);
+  assert.match(shield.value, /判定できません/);
 });
 // エッジ側の同一POPクラスタリング(SJC,SJC)は1段に畳み、別POP(NRT)を足して「2段」。
 // 命中は SJC の fetch ノード＝エッジ。ノード数(3)ではなく POP 数(2)で数える。
