@@ -54,15 +54,13 @@
           <p class="hint" id="compare-result" hidden></p>
         </section>
 
-        <div class="view-tabs" role="tablist" aria-label="表示切り替え">
-          <button id="tab-current" class="view-tab active" type="button" role="tab" aria-selected="true">現在</button>
-          <button id="tab-previous" class="view-tab" type="button" role="tab" aria-selected="false" hidden>前回</button>
-          <button id="tab-older" class="view-tab" type="button" role="tab" aria-selected="false" hidden>前々回</button>
-        </div>
+        <!-- タブは sidepanel.js の RECORD_LABELS から生成する（件数の正はあちら側） -->
+        <div class="view-tabs" id="view-tabs" role="tablist" aria-label="表示切り替え"></div>
 
         <div id="record-view">
           <div class="record-meta" aria-label="表示中の記録">
             <span id="record-url" class="record-url" title="">—</span>
+            <span id="debug-flag" class="debug-flag" hidden>Fastly-Debug</span>
             <span id="record-time" class="record-time"></span>
           </div>
 
@@ -75,6 +73,8 @@
             </div>
           </div>
           <p class="notice" id="route-notice" hidden></p>
+          <!-- 無効化（パージ）の形跡。lib/invalidation.js が複数記録の突き合わせで検出 -->
+          <p class="notice" id="invalidation-notice" hidden></p>
 
           <!-- L1: 鮮度・速さ -->
           <div class="chips">
@@ -104,6 +104,20 @@
               <span>このタブで <code>Fastly-Debug</code> を有効化（切り替えると自動で再読み込みします）</span>
             </label>
             <p class="hint">対象タブだけに適用され、ほかのサイトは書き換えません。多くの本番サイトでは無効化されており取得できないことがあります。</p>
+            <p class="hint debug-status" id="debug-status" hidden></p>
+            <label class="toggle">
+              <input type="checkbox" id="debug-domain" />
+              <span id="debug-domain-label">このドメインで常に有効化</span>
+            </label>
+            <p class="hint">登録したドメインとそのサブドメインには、タブを開き直してもブラウザを再起動しても <code>Fastly-Debug</code> が付きます。自分が管理するサイトにだけ使ってください。</p>
+          </section>
+
+          <!-- 登録一覧。永続ルールなので、Fastly と判定されないページを見ているときでも
+               必ず見えて外せるように、上の上級者向けブロックとは別に出す。 -->
+          <section class="block" id="debug-domains" hidden>
+            <div class="block-title">Fastly-Debug を常に有効にしているドメイン</div>
+            <p class="hint">開くたびに自動で <code>Fastly-Debug</code> が付きます。「×」でいつでも解除できます。</p>
+            <div class="domain-list" id="debug-domain-list"></div>
           </section>
 
           <!-- L3: 生ヘッダー -->
@@ -123,8 +137,12 @@
 
         <section class="block" id="share">
           <div class="block-title">コピーして共有</div>
-          <p class="hint">取得できた分だけをまとめてコピーします。</p>
-          <button id="copy-headers" class="secondary" type="button">レスポンスヘッダーをまとめてコピー</button>
+          <p class="hint">取得できた分だけをまとめてコピーします。渡す相手で選んでください。</p>
+          <div class="button-row">
+            <button id="copy-headers" class="secondary" type="button">エンジニアに渡す</button>
+            <button id="copy-agent" class="secondary" type="button">AIに渡す</button>
+          </div>
+          <p class="hint">「エンジニアに渡す」は届いたヘッダーをそのまま。「AIに渡す」は記録どうしの差分（キャッシュの控えが入れ替わったか、拠点、HITの回数の移り変わり）を計算して添えます。</p>
           <p class="hint" id="copy-status" hidden></p>
         </section>
       </section>

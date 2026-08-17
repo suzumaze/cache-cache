@@ -3,6 +3,8 @@
 import { classify } from '../lib/classify.js';
 import { present } from '../lib/present.js';
 import { recordToInput } from '../lib/record.js';
+import { buildAgentReport } from '../lib/export.js';
+import { detectInvalidation } from '../lib/invalidation.js';
 
 // 保存済みのテーマ選択を最優先で適用（チラ見え最小化）。未保存なら OS 設定に追従。
 try {
@@ -20,9 +22,7 @@ const els = {
   empty: $('empty'),
   loading: $('loading'),
   card: $('card'),
-  tabCurrent: $('tab-current'),
-  tabPrevious: $('tab-previous'),
-  tabOlder: $('tab-older'),
+  viewTabs: $('view-tabs'),
   grantSite: $('grant-site'),
   grantAll: $('grant-all'),
   emptyTitle: $('empty-title'),
@@ -32,6 +32,7 @@ const els = {
   label: $('origin-label'),
   lead: $('origin-lead'),
   routeNotice: $('route-notice'),
+  invalidationNotice: $('invalidation-notice'),
   freshVal: $('fresh-val'),
   speedVal: $('speed-val'),
   reloadNormal: $('reload-normal'),
@@ -46,9 +47,16 @@ const els = {
   stylesheetList: $('stylesheet-list'),
   advanced: $('advanced'),
   debugToggle: $('debug-toggle'),
+  debugFlag: $('debug-flag'),
+  debugStatus: $('debug-status'),
+  debugDomain: $('debug-domain'),
+  debugDomainLabel: $('debug-domain-label'),
+  debugDomains: $('debug-domains'),
+  debugDomainList: $('debug-domain-list'),
   rawTable: $('raw-table'),
   rawNotes: $('raw-notes'),
   copyHeaders: $('copy-headers'),
+  copyAgent: $('copy-agent'),
   copyStatus: $('copy-status'),
   recordUrl: $('record-url'),
   recordTime: $('record-time'),
@@ -68,6 +76,12 @@ let currentTabUrl = '';
 
 const recordKey = (tabId) => `tab_${tabId}`;
 const compareKey = (tabId) => `compare_${tabId}`;
+
+// 表示・共有する同一URLの記録（新しい順）。件数の正はここ。タブの見出しも共有テキストの見出しも
+// この配列から作る。service-worker.js の HISTORY_LIMIT はこれより1件少ない値（現在の記録は別枠）。
+const RECORD_LABELS = ['現在', '前回', '前々回', '3つ前', '4つ前'];
+const RECORD_LIMIT = RECORD_LABELS.length;
+let recordTabs = [];
 
 // Google Fonts Icons / Material Icons の同名アイコンをローカルSVGとして描画する。
 // 外部フォントは読み込まず、拡張内だけで完結させる。
@@ -201,14 +215,28 @@ function toggleTheme() {
 function tabRecords(rec) {
   const currentUrl = comparableUrl(rec?.url);
   const history = (rec?.history || []).filter((item) => item?.url && comparableUrl(item.url) === currentUrl);
-  return [rec, ...history].filter((item) => item?.url).slice(0, 3);
+  return [rec, ...history].filter((item) => item?.url).slice(0, RECORD_LIMIT);
+}
+
+function setupRecordTabs() {
+  recordTabs = RECORD_LABELS.map((label, index) => {
+    const tab = document.createElement('button');
+    tab.className = index === 0 ? 'view-tab active' : 'view-tab';
+    tab.type = 'button';
+    tab.textContent = label;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', String(index === 0));
+    tab.hidden = index !== 0;
+    tab.addEventListener('click', () => setActiveRecord(index));
+    return tab;
+  });
+  els.viewTabs.replaceChildren(...recordTabs);
 }
 
 function updateRecordTabs(rec) {
   const records = tabRecords(rec);
   if (activeRecordIndex >= records.length) activeRecordIndex = 0;
-  const tabs = [els.tabCurrent, els.tabPrevious, els.tabOlder];
-  tabs.forEach((tab, index) => {
+  recordTabs.forEach((tab, index) => {
     const visible = index < records.length;
     tab.hidden = !visible;
     tab.disabled = !visible;
@@ -244,7 +272,19 @@ function rowEl(r) {
   const dt = document.createElement('dt');
   dt.textContent = r.label;
   const dd = document.createElement('dd');
-  dd.textContent = r.value;
+  // tags 付きの行（キャッシュタグ）は、値の代わりに名札を並べる
+  if (r.tags?.length) {
+    dd.className = 'tag-list';
+    dd.append(...r.tags.map((tag) => {
+      const span = document.createElement('span');
+      span.className = 'tag';
+      span.textContent = tag;
+      span.title = tag;
+      return span;
+    }));
+  } else {
+    dd.textContent = r.value;
+  }
   div.append(dt, dd);
   if (r.note) {
     const note = document.createElement('div');
@@ -336,6 +376,27 @@ const HEADER_GROUP_BY_NAME = new Map(
   )),
 );
 const NETWORK_PRIVATE_HEADER_GROUPS = new Set(['surrogate', 'cdnCommon', 'fastly', 'cloudflare', 'cloudfront', 'akamai']);
+// 値そのものが略語で意味が読めないヘッダー（例 content-encoding: br）の補足辞書。
+// ヘッダー名 → { 小文字トークン: 読み下し }。
+const HEADER_VALUE_GLOSSES = new Map(
+  Object.values(HEADER_DESCRIPTION_GROUPS).flatMap((group) => Object.entries(group?.values || {})),
+);
+
+// 生ヘッダー(L3)は「届いたものそのまま」が原則なので値は書き換えず、補足だけを別行で添える。
+// 多値（例 `br, gzip`）はトークンごとに引き、辞書に無いもの（gzip 等）は黙って飛ばす。
+function valueGloss(name, value) {
+  const dict = HEADER_VALUE_GLOSSES.get(String(name).toLowerCase());
+  if (!dict) return '';
+  const seen = new Set();
+  const parts = [];
+  for (const token of String(value ?? '').split(',')) {
+    const t = token.trim().toLowerCase();
+    if (!dict[t] || seen.has(t)) continue;
+    seen.add(t);
+    parts.push(`${t}＝${dict[t]}`);
+  }
+  return parts.join('・');
+}
 
 function isNetworkPrivateHeader(name) {
   return NETWORK_PRIVATE_HEADER_GROUPS.has(HEADER_GROUP_BY_NAME.get(String(name).toLowerCase()));
@@ -348,6 +409,13 @@ function rawHeaderRow({ name, value }) {
   k.textContent = name;
   const val = document.createElement('td');
   val.textContent = value;
+  const gloss = valueGloss(name, value);
+  if (gloss) {
+    const note = document.createElement('div');
+    note.className = 'raw-gloss';
+    note.textContent = gloss;
+    val.append(note);
+  }
   tr.append(k, val);
   return tr;
 }
@@ -495,7 +563,7 @@ async function renderComparison(rec) {
   }
 }
 
-function renderDisplayedRecord(rec, index) {
+function renderDisplayedRecord(rec, index, invalidation) {
   const v = classify(recordToInput(rec, Date.now()));
   const p = present(v);
   displayedRecord = rec;
@@ -503,6 +571,9 @@ function renderDisplayedRecord(rec, index) {
   displayedView = p;
   // 上級者向け（Fastly-Debug 注入）は現在タブの Fastly 検出時だけ表示する
   els.advanced.hidden = index !== 0 || v.cdn?.name !== 'Fastly';
+  // 印は「設定したか」ではなく「詳細ヘッダーが実際に届いたか」で出す。記録ごとに違うので毎回描く。
+  els.debugFlag.hidden = !p.debugActive;
+  els.debugFlag.title = p.debugActive ? 'この記録では Fastly の詳細ヘッダーが届いています' : '';
   document.documentElement.style.setProperty('--accent', p.badge.color);
   renderOriginIcon(p.l1.icon);
   els.label.textContent = p.l1.label;
@@ -521,6 +592,16 @@ function renderDisplayedRecord(rec, index) {
     els.routeNotice.hidden = true;
     els.routeNotice.textContent = '';
   }
+  // 無効化（パージ）の形跡。断定はせず「形跡」止まり（原則3）。根拠も添えて透明にする。
+  if (invalidation?.invalidated) {
+    els.invalidationNotice.hidden = false;
+    els.invalidationNotice.textContent = invalidation.replacedLater
+      ? 'この控えには、無効化（パージ）された形跡があります（キャッシュで見つかった回数が、通常はありえない形で戻っているため）。古い版が一時的に配られていましたが、この記録のあと新しい版に切り替わっています。'
+      : 'この控えには、無効化（パージ）された形跡があります（キャッシュで見つかった回数が、通常はありえない形で戻っているため）。無効化のあとも残っていた古い版が、切り替わりまでのあいだ配られています。再読み込みすると、新しい版になったか確認できます。';
+  } else {
+    els.invalidationNotice.hidden = true;
+    els.invalidationNotice.textContent = '';
+  }
 }
 
 function renderSelectedRecord(rec) {
@@ -530,14 +611,14 @@ function renderSelectedRecord(rec) {
   const records = tabRecords(rec);
   if (activeRecordIndex >= records.length) activeRecordIndex = 0;
   updateRecordTabs(rec);
-  renderDisplayedRecord(records[activeRecordIndex] || rec, activeRecordIndex);
+  // 無効化の形跡は記録どうしの突き合わせで決まるので、表示対象の1件ではなく全記録から計算する
+  const invalidationMarks = detectInvalidation(records);
+  renderDisplayedRecord(records[activeRecordIndex] || rec, activeRecordIndex, invalidationMarks[activeRecordIndex]);
 }
 
 function fullRender(rec) {
   renderSelectedRecord(rec);
 }
-
-const RECORD_LABELS = ['現在', '前回', '前々回'];
 
 function buildResponseHeadersText(rec, title = 'レスポンスヘッダー') {
   const lines = [
@@ -564,16 +645,22 @@ function buildAllResponseHeadersText(rec) {
   return sections.reverse().join('\n\n---\n\n');
 }
 
-async function copyText(text) {
+async function copyText(text, done) {
   await navigator.clipboard.writeText(text);
   els.copyStatus.hidden = false;
-  els.copyStatus.textContent = 'レスポンスヘッダーをまとめてコピーしました';
+  els.copyStatus.textContent = done;
 }
 
-async function copyHeaders() {
+async function copyFor(kind) {
   if (!currentRecord) return;
+  const records = tabRecords(currentRecord);
   try {
-    await copyText(buildAllResponseHeadersText(currentRecord));
+    if (kind === 'agent') {
+      const entries = records.map((record, index) => ({ label: RECORD_LABELS[index], record }));
+      await copyText(buildAgentReport(entries, Date.now()), `AIに渡す形で ${records.length}件コピーしました`);
+    } else {
+      await copyText(buildAllResponseHeadersText(currentRecord), `レスポンスヘッダーを ${records.length}件コピーしました`);
+    }
   } catch (e) {
     els.copyStatus.hidden = false;
     els.copyStatus.textContent = 'コピーできませんでした';
@@ -627,13 +714,101 @@ function tick() {
   setSpeed(p.l1.speed);
 }
 
+// ---- Fastly-Debug を常に有効にするドメインの登録 ----
+// storage.local の一覧が正で、実際のルール構築は Service Worker が行う（service-worker.js の
+// DEBUG_DOMAINS_KEY と対。tab_ キーと同じく、キー文字列は両者で持ち合う）。
+const DEBUG_DOMAINS_KEY = 'debugDomains';
+
+function hostnameOf(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return u.hostname;
+  } catch (_) {
+    return '';
+  }
+}
+
+/** DNR の requestDomains と同じ意味づけ: 登録ドメイン自身と、そのサブドメインにマッチする。 */
+function domainCovers(registered, host) {
+  return host === registered || host.endsWith(`.${registered}`);
+}
+
+async function getDebugDomains() {
+  try {
+    const o = await chrome.storage.local.get(DEBUG_DOMAINS_KEY);
+    return Array.isArray(o[DEBUG_DOMAINS_KEY]) ? o[DEBUG_DOMAINS_KEY] : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function setDebugDomain(domain, on) {
+  await chrome.runtime.sendMessage({ type: 'cc-set-debug-domain', domain, on });
+  await syncDebugToggle();
+}
+
+function domainChip(domain) {
+  const chip = document.createElement('span');
+  chip.className = 'domain-chip';
+  const name = document.createElement('span');
+  name.textContent = domain;
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'domain-remove';
+  remove.textContent = '×';
+  remove.title = `${domain} の登録を解除`;
+  remove.setAttribute('aria-label', `${domain} の登録を解除`);
+  remove.addEventListener('click', () => setDebugDomain(domain, false));
+  chip.append(name, remove);
+  return chip;
+}
+
+// 一覧は上級者向けブロック（Fastly 判定時のみ表示）とは独立に出す。登録は再起動をまたいで残るので、
+// どのページを見ていても「何を登録したか」が見えて外せることが、この機能を持てる条件そのもの。
+function renderDebugDomainList(domains) {
+  els.debugDomains.hidden = !domains.length;
+  els.debugDomainList.replaceChildren(...domains.map(domainChip));
+}
+
 async function syncDebugToggle() {
+  const host = hostnameOf(currentRecord?.url || currentTabUrl);
+  const domains = await getDebugDomains();
+  const registered = !!host && domains.includes(host);
+  // 親ドメインの登録で巻き取られている場合。ここのチェックを外しても解除できないので触らせない。
+  const coveredBy = host ? domains.find((d) => d !== host && domainCovers(d, host)) : undefined;
+  const always = registered || !!coveredBy;
+
+  els.debugDomain.checked = always;
+  els.debugDomain.disabled = !host || !!coveredBy;
+  els.debugDomainLabel.textContent = coveredBy
+    ? `${coveredBy} が登録済みのため、このドメインでも常に有効です`
+    : host
+      ? `${host} とそのサブドメインで常に有効化`
+      : 'このドメインで常に有効化';
+
+  let sessionOn = false;
   try {
     const rules = await chrome.declarativeNetRequest.getSessionRules();
-    els.debugToggle.checked = rules.some((r) => r.id === currentTabId);
+    sessionOn = rules.some((r) => r.id === currentTabId);
   } catch (_) {
     /* 取得できなければ既定 off のまま */
   }
+  // 登録ドメインでは常時ルールが効くため、タブ単位で外すことはできない。実態（有効）を映して固定する。
+  els.debugToggle.checked = always || sessionOn;
+  els.debugToggle.disabled = always;
+
+  // 「有効にしたのに詳細ヘッダーが返らない」を黙って放置しない。多くの本番サイトは
+  // Fastly-Debug を無効化しているので、設定が入っている＝取得できている、ではない（原則3）。
+  const wanted = always || sessionOn;
+  const got = !!currentView?.debugActive;
+  els.debugStatus.hidden = !wanted;
+  els.debugStatus.classList.toggle('ok', got);
+  els.debugStatus.textContent = got
+    ? '有効です。このサイトから詳細ヘッダーが届いています。'
+    : 'このサイトからは詳細ヘッダーが返っていません（サイト側で無効化されているか、まだ再読み込みしていません）。';
+
+  renderDebugDomainList(domains);
 }
 
 function isMonitorable(url) {
@@ -718,10 +893,6 @@ function scheduleRefresh() {
 }
 
 // ---- イベント ----
-els.tabCurrent.addEventListener('click', () => setActiveRecord(0));
-els.tabPrevious.addEventListener('click', () => setActiveRecord(1));
-els.tabOlder.addEventListener('click', () => setActiveRecord(2));
-
 els.grantSite.addEventListener('click', async () => {
   try {
     const tab = await getActiveTab();
@@ -761,7 +932,29 @@ els.debugToggle.addEventListener('change', async () => {
   chrome.tabs.reload(currentTabId);
 });
 
-els.copyHeaders.addEventListener('click', copyHeaders);
+els.debugDomain.addEventListener('change', async () => {
+  const host = hostnameOf(currentRecord?.url || currentTabUrl);
+  if (!host) return;
+  const on = els.debugDomain.checked;
+  if (on) {
+    // host 権限が無いとルールは追加できても黙って発火しない。要求はユーザー操作の直後でないと通らない。
+    let granted = false;
+    try {
+      granted = await chrome.permissions.request({ origins: [`*://*.${host}/*`] });
+    } catch (e) {
+      console.error(e);
+    }
+    if (!granted) {
+      els.debugDomain.checked = false; // 効かない登録を残さない
+      return;
+    }
+  }
+  await setDebugDomain(host, on);
+  if (currentTabId != null) chrome.tabs.reload(currentTabId);
+});
+
+els.copyHeaders.addEventListener('click', () => copyFor('headers'));
+els.copyAgent.addEventListener('click', () => copyFor('agent'));
 
 // テーマ切替（右上アイコン）。未選択(auto)時は OS 変更にも追従してアイコンを更新
 els.themeToggle.addEventListener('click', toggleTheme);
@@ -779,5 +972,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 if (chrome.windows?.onFocusChanged) chrome.windows.onFocusChanged.addListener(refresh);
 
 setInterval(tick, 1000);
+setupRecordTabs();
 setupShortcutButtons();
 refresh();

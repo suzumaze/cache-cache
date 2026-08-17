@@ -8,7 +8,10 @@ import { recordToInput } from './lib/record.js';
 
 const key = (tabId) => `tab_${tabId}`;
 const CSS_LIMIT = 8;
-const HISTORY_LIMIT = 2;
+// 同一URLの過去記録を何件残すか（現在の記録は別で持つので、表示・共有は最大 HISTORY_LIMIT+1 件）。
+// 数回の再読み込みで最初の1回が押し出されると、Age の伸び方を後から追えなくなるため厚めに持つ。
+// sidepanel.js の RECORD_LABELS の件数と対（片方だけ増やしても、あふれた分は表示されない）。
+const HISTORY_LIMIT = 4;
 
 // ---- サイドパネルを開く（default_popup を置かないので onClicked が発火する） ----
 chrome.action.onClicked.addListener(async (tab) => {
@@ -20,21 +23,25 @@ chrome.action.onClicked.addListener(async (tab) => {
 });
 
 // ---- 主ドキュメントの観測（リスナはトップレベルで同期登録） ----
+// Chrome はイベントリスナが返す Promise を見ないため、async 処理の失敗はここで受け止めて
+// 文脈（URL）付きで記録する。放置すると文脈なしの unhandled rejection がエラー一覧を汚す。
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
-    if (details.type === 'main_frame' && details.tabId >= 0) resetTab(details.tabId, details.url);
+    if (details.type === 'main_frame' && details.tabId >= 0) {
+      resetTab(details.tabId, details.url).catch((e) => console.warn('記録のリセットに失敗:', details.url, e));
+    }
   },
   { urls: ['<all_urls>'], types: ['main_frame'] },
 );
 
 chrome.webRequest.onCompleted.addListener(
-  handleCompleted,
+  (details) => handleCompleted(details).catch((e) => console.warn('主ドキュメントの記録に失敗:', details.url, e)),
   { urls: ['<all_urls>'], types: ['main_frame'] },
   ['responseHeaders', 'extraHeaders'],
 );
 
 chrome.webRequest.onCompleted.addListener(
-  handleStylesheetCompleted,
+  (details) => handleStylesheetCompleted(details).catch((e) => console.warn('CSSの記録に失敗:', details.url, e)),
   { urls: ['<all_urls>'], types: ['stylesheet', 'other'] },
   ['responseHeaders', 'extraHeaders'],
 );
@@ -78,6 +85,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       } else if (msg?.type === 'cc-toggle-debug' && typeof msg.tabId === 'number') {
         await setDebugRule(msg.tabId, !!msg.on);
         sendResponse?.({ ok: true });
+      } else if (msg?.type === 'cc-set-debug-domain' && typeof msg.domain === 'string' && msg.domain) {
+        await setDebugDomain(msg.domain, !!msg.on);
+        sendResponse?.({ ok: true });
       } else {
         sendResponse?.({ ok: false });
       }
@@ -94,7 +104,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   chrome.storage.session.remove(key(tabId)).catch(() => {});
   setDebugRule(tabId, false).catch(() => {});
 });
-chrome.tabs.onActivated.addListener(({ tabId }) => refreshBadge(tabId));
+chrome.tabs.onActivated.addListener(({ tabId }) => refreshBadge(tabId).catch(() => {}));
 
 // ---- storage.session ヘルパ ----
 async function getTab(tabId) {
@@ -111,7 +121,11 @@ function updateTab(tabId, updater) {
     await chrome.storage.session.set({ [key(tabId)]: updater(cur) });
   });
   writeChains.set(tabId, next);
-  next.finally(() => { if (writeChains.get(tabId) === next) writeChains.delete(tabId); });
+  // .finally() は新しい Promise の枝を作り、next 失敗時にその枝が unhandled rejection になる
+  // （呼び出し側が next を catch していても枝は別勘定）。then(掃除, 掃除) なら成功・失敗の
+  // どちらも掃除で受け止め、失敗を抱えた枝を残さない。
+  const cleanup = () => { if (writeChains.get(tabId) === next) writeChains.delete(tabId); };
+  next.then(cleanup, cleanup);
   return next;
 }
 function mergeTab(tabId, patch) {
@@ -124,7 +138,8 @@ async function resetTab(tabId, pendingUrl) {
   writeChains.delete(tabId); // 新ナビゲーション開始時は旧更新チェーンの参照を断つ
   const next = chrome.storage.session.set({ [key(tabId)]: { pendingUrl, stylesheets: [], history } });
   writeChains.set(tabId, next);
-  next.finally(() => { if (writeChains.get(tabId) === next) writeChains.delete(tabId); });
+  const cleanup = () => { if (writeChains.get(tabId) === next) writeChains.delete(tabId); };
+  next.then(cleanup, cleanup); // updateTab と同じ理由で .finally() は使わない
   await next.catch(() => {});
   try {
     await chrome.action.setBadgeText({ tabId, text: '' });
@@ -185,7 +200,11 @@ function pushHistory(history, rec, targetUrl = rec?.url || rec?.pendingUrl || ''
   }
   return [
     entry,
-    ...existing.filter((item) => Math.abs((item.receiveTime || 0) - entry.receiveTime) > 1000),
+    // 除きたいのは「同じ完了記録の二重積み」だけ（同一ナビゲーションで resetTab が複数回
+    // 走った場合など）。同一記録なら保存された receiveTime が完全一致する。以前の「受信時刻が
+    // 1秒以内なら重複」だと、1秒以内の連打で直前の記録（別の応答の観測）まで消えてしまい、
+    // パージ実験のような数秒内の連続観測で履歴が積めなかった。
+    ...existing.filter((item) => (item.receiveTime || 0) !== entry.receiveTime),
   ].slice(0, HISTORY_LIMIT);
 }
 
@@ -393,6 +412,51 @@ chrome.runtime.onInstalled.addListener(syncContentScript);
 chrome.runtime.onStartup.addListener(syncContentScript);
 chrome.permissions.onAdded.addListener(syncContentScript);
 chrome.permissions.onRemoved.addListener(syncContentScript);
+
+// ---- Fastly-Debug 常時注入（登録ドメイン・再起動しても残る dynamic ルール） ----
+// storage.local の登録一覧を唯一の正とし、ルールは毎回そこから全再構築する（取り残しを作らない）。
+// dynamic ルールと下の session ルールは別集合なので、ID が重なっても衝突しない。
+// declarativeNetRequestWithHostAccess のため、host 権限の無いドメインではルールは黙って発火しない。
+// 登録時に権限を要求するのはサイドパネル側の責任。
+export const DEBUG_DOMAINS_KEY = 'debugDomains';
+
+async function getDebugDomains() {
+  const o = await chrome.storage.local.get(DEBUG_DOMAINS_KEY);
+  return Array.isArray(o[DEBUG_DOMAINS_KEY]) ? o[DEBUG_DOMAINS_KEY].filter((d) => typeof d === 'string' && d) : [];
+}
+
+async function syncDebugDomainRules() {
+  const domains = await getDebugDomains();
+  let existing = [];
+  try {
+    existing = await chrome.declarativeNetRequest.getDynamicRules();
+  } catch (_) {}
+  const addRules = domains.map((domain, i) => ({
+    id: i + 1,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [{ header: 'Fastly-Debug', operation: 'set', value: '1' }],
+    },
+    // requestDomains は登録ドメイン自身とそのサブドメインにマッチする
+    condition: { requestDomains: [domain], resourceTypes: ['main_frame'] },
+  }));
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: existing.map((r) => r.id), addRules });
+  } catch (e) {
+    console.error('Fastly-Debug の常時ルール更新に失敗:', e);
+  }
+}
+
+async function setDebugDomain(domain, on) {
+  const domains = await getDebugDomains();
+  const next = on ? [...new Set([...domains, domain])] : domains.filter((d) => d !== domain);
+  await chrome.storage.local.set({ [DEBUG_DOMAINS_KEY]: next });
+  await syncDebugDomainRules();
+}
+
+chrome.runtime.onInstalled.addListener(syncDebugDomainRules);
+chrome.runtime.onStartup.addListener(syncDebugDomainRules);
 
 // ---- Fastly-Debug 注入（上級者向け・対象タブ限定の session ルール） ----
 async function setDebugRule(tabId, on) {

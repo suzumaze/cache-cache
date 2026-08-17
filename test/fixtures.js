@@ -47,6 +47,19 @@ export const FIXTURES = {
     vary: 'X-Device-Type, Accept-Encoding',
   }), { ttfbMs: 3 }),
 
+  // Fastly-Debug 有効時にだけ返るキャッシュタグ。空白区切りが正式だが、Surrogate-Key ヘッダーが
+  // 複数返ると toHeaderMap が ", " で結合するため、その形（空白とカンマの混在）と重複を再現する。
+  fastlyDebugTags: input(h({
+    via: '1.1 varnish',
+    'x-served-by': 'cache-nrt-rjtf7700099-NRT',
+    'x-cache': 'HIT',
+    'x-cache-hits': '1',
+    age: '30',
+    'surrogate-control': 'max-age=86400',
+    'surrogate-key': 'article-42 top article-42, top news',
+    'content-encoding': 'br',
+  })),
+
   fastlyEdgeHit: input(h({
     via: '1.1 varnish',
     'x-served-by': 'cache-nrt-rjtf7700099-NRT',

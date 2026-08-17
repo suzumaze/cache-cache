@@ -29,6 +29,9 @@
   "fastly": {
     "label": "Fastly独自",
     "headers": {
+      "fastly-debug-digest": "この控えを見分けるための符号。同じ控えかの照合に使う（Fastly-Debug有効時のみ）",
+      "fastly-debug-path": "通った拠点と時刻。D＝配信した拠点、F＝サーバーから取ってきた拠点と、その取得時刻（Fastly-Debug有効時のみ）",
+      "fastly-debug-ttl": "見つかった控えの状態・残りの有効期間・猶予・経過（この順。Fastly-Debug有効時のみ）",
       "x-cache-hits": "キャッシュで見つかった回数（Fastly独自）",
       "x-served-by": "配信した拠点（Fastly独自）",
       "x-timer": "処理時間の内訳（Fastly独自）"
@@ -78,6 +81,14 @@
       "location": "転送先URL（リダイレクト, RFC9110）",
       "server": "サーバーソフトの名称（RFC9110）",
       "set-cookie": "ブラウザに保存させるCookie（RFC6265）"
+    },
+    "values": {
+      "content-encoding": {
+        "br": "Brotli",
+        "zstd": "Zstandard",
+        "deflate": "Deflate（zlib）",
+        "identity": "圧縮なし"
+      }
     }
   }
 }

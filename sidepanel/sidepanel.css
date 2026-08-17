@@ -417,6 +417,22 @@ button.view-tab:focus-visible {
   font-size: var(--text-small);
   margin-top: -2px;
 }
+/* キャッシュタグ（Surrogate-Key）の名札。値がそのまま識別子なので等幅で出す */
+.details dd.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tag {
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: 6px;
+  padding: 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-small);
+  line-height: 1.6;
+  word-break: break-all;
+}
 
 /* ---- 用語補足 ---- */
 .terms {
@@ -460,6 +476,44 @@ button.view-tab:focus-visible {
   align-items: flex-start;
   font-size: var(--text-small);
   padding: 4px 0;
+}
+/* 常時ルールに巻き取られて操作できないトグルは、実態を映したまま触れないと分かるようにする */
+.toggle:has(input:disabled) {
+  opacity: 0.65;
+}
+/* 常に有効化しているドメインの一覧（永続ルールなので、いつでも見えて外せること） */
+.domain-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 10px;
+}
+.domain-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: 6px;
+  padding: 1px 4px 1px 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-small);
+  word-break: break-all;
+}
+.domain-remove {
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: var(--text-small);
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 4px;
+}
+.domain-remove:hover {
+  color: var(--ink);
+  background: var(--bg);
 }
 .toggle code,
 code {
@@ -549,6 +603,11 @@ code {
   font-weight: 700;
   padding: 8px 6px 6px;
 }
+/* 生ヘッダーの値は原文のまま。略語（br 等）の読み下しだけを下に薄く添える */
+.raw-gloss {
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
 .raw-notes {
   margin: 2px 0 12px;
   display: flex;
@@ -598,4 +657,26 @@ code {
 }
 .record-time {
   flex: none;
+}
+
+/* Fastly-Debug が実際に効いている記録の印（設定の状態ではなく、詳細ヘッダーが届いたかで出す） */
+.debug-flag {
+  flex: none;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-line);
+  border-radius: 5px;
+  padding: 0 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--text-caption);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.debug-status::before {
+  content: '⚠ ';
+}
+.debug-status.ok {
+  color: #16A34A; /* 汎用の成功色。原則1.5 の緑（ネットワーク）とは別文脈 */
+}
+.debug-status.ok::before {
+  content: '✓ ';
 }
