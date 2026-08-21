@@ -1,12 +1,13 @@
 {
   "name": "cache-cache",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "description": "リソースがどこから届いたかを詳しく、やさしい言葉で表示する Chrome 拡張（Manifest V3）",
   "scripts": {
     "test": "node --test",
     "check:release": "node tools/check-release.mjs",
+    "verify:panel": "node tools/verify-panel.mjs",
     "icons": "node tools/make-icons.mjs",
     "package": "node tools/package-extension.mjs"
   },

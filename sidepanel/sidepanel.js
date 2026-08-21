@@ -128,9 +128,9 @@ function setShortcutButton(button, label, shortcut) {
 function setupShortcutButtons() {
   setShortcutButton(els.reloadEmpty, 'このページを再読み込み', shortcutText('normal'));
   setShortcutButton(els.reloadNormal, '通常再読み込み', shortcutText('normal'));
-  setShortcutButton(els.reloadBypass, 'キャッシュ無視', shortcutText('bypass'));
+  setShortcutButton(els.reloadBypass, 'ブラウザキャッシュ無視', shortcutText('bypass'));
   setShortcutButton(els.reloadClearNormal, 'リセットして通常', '');
-  setShortcutButton(els.reloadClearBypass, 'リセットしてキャッシュ無視', '');
+  setShortcutButton(els.reloadClearBypass, 'リセットして無視', '');
 }
 
 function originPatternFromUrl(url) {
@@ -530,7 +530,7 @@ function snapshot(rec, verdict, view) {
 }
 
 function describeCompare(before, after, mode) {
-  const modeLabel = mode === 'bypass' ? 'キャッシュ無視' : '通常再読み込み';
+  const modeLabel = mode === 'bypass' ? 'ブラウザキャッシュ無視' : '通常再読み込み';
   const confirm = after.revalidated === true ? ' / 最新確認済み' : '';
   const transition = before.label === after.label
     ? `${after.label}のまま`

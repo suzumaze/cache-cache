@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Cache Cache（カーシュ・カーシュ）",
   "short_name": "カーシュ・カーシュ",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "CDN（Fastly・Cloudflare等）やブラウザのキャッシュを可視化。リソースがどの控えから届いたか、HIT/MISS・鮮度・拠点までやさしい言葉で表示します。",
   "minimum_chrome_version": "116",
   "icons": {

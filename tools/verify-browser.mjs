@@ -3,46 +3,18 @@
 //  ② サイドパネル実描画（ESM import 解決・console エラー無し）＋スクショ
 //  ③ ブラウザ内で実 lib を import しライブURLのヘッダーで正しい出力か
 //  ④ ページ→runtime.sendMessage で SW を起こし、host権限付与→対象URL→storage 捕捉
-import puppeteer from 'puppeteer-core';
 import { execSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { classify } from '../lib/classify.js';
 import { present } from '../lib/present.js';
 import { recordToInput } from '../lib/record.js';
+// 拡張の複製・ID算出・Chrome 起動は tools/verify-panel.mjs と共通（tools/chrome-harness.mjs）。
+import { extensionIdCandidates, launchChrome, prepareExtensionForVerification, resolveExtensionId } from './chrome-harness.mjs';
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const SHOT = '/tmp/cc-shot';
-const PROFILE = mkdtempSync(join(tmpdir(), 'cc-prof-'));
 const SOURCE_EXT = process.cwd();
 const EXT = prepareExtensionForVerification(SOURCE_EXT);
 const TARGET_URL = process.env.VERIFY_URL || 'https://www.fastly.com/jp/';
 const log = (...a) => console.log(...a);
-
-function prepareExtensionForVerification(sourceDir) {
-  const out = mkdtempSync(join(tmpdir(), 'cc-ext-'));
-  for (const name of ['manifest.json', 'service-worker.js', 'content', 'lib', 'sidepanel', 'icons']) {
-    const src = join(sourceDir, name);
-    if (!existsSync(src)) continue;
-    cpSync(src, join(out, name), { recursive: true });
-  }
-  const manifestPath = join(out, 'manifest.json');
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  manifest.host_permissions = [...new Set([...(manifest.host_permissions || []), '<all_urls>'])];
-  delete manifest.optional_host_permissions;
-  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-  mkdirSync(join(out, 'content'), { recursive: true });
-  return out;
-}
-
-// unpacked 拡張IDの算出: SHA256(絶対パス) 先頭16バイト→各hex桁を a..p に写像
-function idFromPath(p) {
-  const h = createHash('sha256').update(p).digest('hex').slice(0, 32);
-  return [...h].map((c) => String.fromCharCode(97 + parseInt(c, 16))).join('');
-}
-function realSafe(p) { try { return realpathSync(p); } catch { return p; } }
 
 function liveHeaders(url) {
   const out = execSync(`curl -sS -D - -o /dev/null --max-time 12 ${JSON.stringify(url)}`, { encoding: 'utf8' });
@@ -55,21 +27,20 @@ function liveHeaders(url) {
 
 const headers = liveHeaders(TARGET_URL);
 // headless では Chrome が MV3 拡張をロードしないため headful で起動（検証用・一時プロファイル）
-const browser = await puppeteer.launch({
-  executablePath: CHROME,
-  headless: false,
-  userDataDir: PROFILE,
-  pipe: true,
-  enableExtensions: true,
-  args: ['--no-first-run', '--no-default-browser-check', '--window-size=420,820'],
-});
+let browser;
+try {
+  browser = await launchChrome();
+} catch (e) {
+  log(e.message);
+  process.exit(1);
+}
 
 try {
   const installedId = await browser.installExtension(EXT).catch((e) => {
     log('拡張インストール失敗:', e.message);
     return null;
   });
-  const candidates = [...new Set([installedId, idFromPath(realSafe(EXT)), idFromPath(EXT)].filter(Boolean))];
+  const candidates = extensionIdCandidates(installedId, EXT);
 
   // ① 候補IDでサイドパネルを開いて拡張を特定
   const page = await browser.newPage();
@@ -78,13 +49,9 @@ try {
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console.error: ' + m.text()); });
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 
-  let extId = null;
-  for (const id of candidates) {
-    const ok = await page.goto(`chrome-extension://${id}/sidepanel/sidepanel.html`, { waitUntil: 'domcontentloaded', timeout: 12000 })
-      .then(() => page.$('#origin-label')).then((el) => !!el).catch(() => false);
+  const extId = await resolveExtensionId(page, candidates, (id, ok) => {
     log(`   候補ID ${id}: ${ok ? '一致（サイドパネル描画）' : '不一致'}`);
-    if (ok) { extId = id; break; }
-  }
+  });
   if (!extId) throw new Error('拡張IDを特定できず（headlessで未ロードの可能性）');
   log('① 拡張ロード OK / ID:', extId);
 
